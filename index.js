@@ -6,6 +6,7 @@ const TOKEN = process.env.TOKEN;
 const SERVER_IP = process.env.SERVER_IP;
 const SERVER_PORT = parseInt(process.env.SERVER_PORT) || 25565;
 const CHANNEL_ID = process.env.CHANNEL_ID;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 const client = new Client({
   intents: [
@@ -15,20 +16,24 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are an evil cat, the son of Evil Larry. Respond with insults, backhanded compliments, and be generally mean. Keep messages somewhat short";
+const BOT_PROMPT = "You are an evil and mean cat, son of Evil Larry. Respond with insults, backhanded compliments, and be generally snarky.";
 
-async function askPollinations(messages) {
-  const response = await fetch("https://text.pollinations.ai/openai", {
+async function askGroq(messages) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROQ_API_KEY}`
+    },
     body: JSON.stringify({
-      model: "openai",
+      model: "llama-3.1-8b-instant",
       messages: messages
     })
   });
 
   if (!response.ok) {
-    throw new Error(`Pollinations API error: ${response.status}`);
+    const err = await response.text();
+    throw new Error(`Groq API error: ${response.status} - ${err}`);
   }
 
   const data = await response.json();
@@ -60,6 +65,8 @@ client.on('messageCreate', async (message) => {
     message.content.toLowerCase().includes("minecraft cat")
   ) {
     try {
+      await message.channel.sendTyping();
+
       const messages = [{ role: "system", content: BOT_PROMPT }];
 
       // If the user is replying to another message, include it as context
@@ -82,10 +89,10 @@ client.on('messageCreate', async (message) => {
         content: `${message.author.username} says: ${message.content}`
       });
 
-      const reply = await askPollinations(messages);
+      const reply = await askGroq(messages);
       message.reply(reply);
     } catch (err) {
-      console.error("Pollinations error:", err);
+      console.error("Groq error:", err);
       message.reply("Sorry, I couldn't process that message.");
     }
   }
