@@ -44,7 +44,7 @@ async function updateServerStatus() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  if (message.content.toLowerCase().includes("catbot")) {
+if (message.content.toLowerCase().includes("catbot") || message.content.toLowerCase().includes("minecraft cat")) {
     try {
       const response = await openai.createChatCompletion({
         model: "gpt-3.5-turbo",
