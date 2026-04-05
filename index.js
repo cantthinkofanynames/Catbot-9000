@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { status } = require('minecraft-server-util');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require("openai");
 const http = require('http');
 
 const TOKEN = process.env.TOKEN;
@@ -17,9 +17,9 @@ const client = new Client({
   ]
 });
 
-const openai = new OpenAIApi(new Configuration({
-  apiKey: OPENAI_API_KEY
-}));
+const openai = new OpenAI.OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 const BOT_PROMPT = "You are an evil and mean cat. Respond with slight insults, backhanded compliments, and be generally snarky.";
 
