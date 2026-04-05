@@ -57,6 +57,12 @@ client.on('messageCreate', async (message) => {
           { role: "user", content: message.content }
         ]
       });
+      
+      // Access the message correctly
+      const reply = response.choices?.[0]?.message?.content;
+      if (!reply) throw new Error("No reply returned");
+      
+      message.reply(reply);
 
       const reply = response.choices[0].message.content;
       message.reply(reply);
