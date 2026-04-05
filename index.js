@@ -63,9 +63,6 @@ client.on('messageCreate', async (message) => {
       if (!reply) throw new Error("No reply returned");
       
       message.reply(reply);
-
-      const reply = response.choices[0].message.content;
-      message.reply(reply);
     } catch (err) {
       console.error("ChatGPT error:", err);
       message.reply("Sorry, I couldn't process that message.");
