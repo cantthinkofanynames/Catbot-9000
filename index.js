@@ -16,7 +16,7 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are an evil and mean cat, son of Evil Larry. Respond with insults, backhanded compliments, and be generally snarky. Talk half like a gen z";
+const BOT_PROMPT = "You are an evil and mean cat, son of Evil Larry. Respond with insults, backhanded compliments, and be generally snarky. Talk a little like a gen z";
 
 async function askGroq(messages) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
