@@ -17,11 +17,17 @@ const client = new Client({
   ]
 });
 
-const openai = new OpenAI.OpenAI({
+const openai = new OpenAI({
   apiKey: OPENAI_API_KEY
 });
 
 const BOT_PROMPT = "You are an evil and mean cat. Respond with slight insults, backhanded compliments, and be generally snarky.";
+
+// Track cooldowns per user
+const lastMessageTime = new Map();
+
+// Prevent duplicate replies per message
+const processingMessages = new Set();
 
 async function updateServerStatus() {
   try {
@@ -44,19 +50,27 @@ async function updateServerStatus() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // Keywords to trigger the bot
   const content = message.content.toLowerCase();
   if (!content.includes("catbot") && !content.includes("minecraft cat")) return;
 
-  if (!client.lastMessageTime) client.lastMessageTime = new Map();
+  // Prevent duplicate handling of same message
+  if (processingMessages.has(message.id)) return;
+  processingMessages.add(message.id);
+
+  // Cooldown (1 second per user)
   const now = Date.now();
-  const last = client.lastMessageTime.get(message.author.id) || 0;
-  if (now - last < 1000) return;
-  client.lastMessageTime.set(message.author.id, now);
+  const last = lastMessageTime.get(message.author.id) || 0;
+  if (now - last < 1000) {
+    processingMessages.delete(message.id);
+    return;
+  }
+  lastMessageTime.set(message.author.id, now);
+
+  let replied = false;
 
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4.1-mini",
       messages: [
         { role: "system", content: BOT_PROMPT },
         { role: "user", content: message.content }
@@ -64,13 +78,21 @@ client.on('messageCreate', async (message) => {
     });
 
     const reply = response.choices?.[0]?.message?.content;
-    if (!reply) throw new Error("No reply returned");
+
+    if (!reply) throw new Error("No reply returned from OpenAI");
 
     await message.reply(reply);
+    replied = true;
 
   } catch (err) {
     console.error("ChatGPT error:", err);
-    await message.reply("Sorry, I couldn't process that message.");
+
+    if (!replied) {
+      await message.reply("Sorry, I couldn't process that message.");
+    }
+  } finally {
+    // Clean up so memory doesn't grow forever
+    processingMessages.delete(message.id);
   }
 });
 
@@ -84,7 +106,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   updateServerStatus();
-  setInterval(updateServerStatus, 30000); // update every 30s
+  setInterval(updateServerStatus, 30000);
 });
 
 client.login(TOKEN);
