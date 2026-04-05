@@ -44,29 +44,33 @@ async function updateServerStatus() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  // Respond to one or more keywords
-  if (
-    message.content.toLowerCase().includes("catbot") ||
-    message.content.toLowerCase().includes("minecraft cat")
-  ) {
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: BOT_PROMPT },
-          { role: "user", content: message.content }
-        ]
-      });
-      
-      // Access the message correctly
-      const reply = response.choices?.[0]?.message?.content;
-      if (!reply) throw new Error("No reply returned");
-      
-      message.reply(reply);
-    } catch (err) {
-      console.error("ChatGPT error:", err);
-      message.reply("Sorry, I couldn't process that message.");
-    }
+  // Keywords to trigger the bot
+  const content = message.content.toLowerCase();
+  if (!content.includes("catbot") && !content.includes("minecraft cat")) return;
+
+  if (!client.lastMessageTime) client.lastMessageTime = new Map();
+  const now = Date.now();
+  const last = client.lastMessageTime.get(message.author.id) || 0;
+  if (now - last < 1000) return;
+  client.lastMessageTime.set(message.author.id, now);
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: BOT_PROMPT },
+        { role: "user", content: message.content }
+      ]
+    });
+
+    const reply = response.choices?.[0]?.message?.content;
+    if (!reply) throw new Error("No reply returned");
+
+    await message.reply(reply);
+
+  } catch (err) {
+    console.error("ChatGPT error:", err);
+    await message.reply("Sorry, I couldn't process that message.");
   }
 });
 
