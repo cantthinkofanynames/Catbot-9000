@@ -1,41 +1,31 @@
 const { Client, GatewayIntentBits } = require('discord.js');
-const { MinecraftServer } = require('mcping-js');
+const { status } = require('minecraft-server-util');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ENV VARIABLES (IMPORTANT)
+// ENV VARIABLES
 const SERVER_IP = process.env.SERVER_IP;
-const SERVER_PORT = process.env.SERVER_PORT || 25565;
+const SERVER_PORT = parseInt(process.env.SERVER_PORT) || 25565;
 const CHANNEL_ID = process.env.CHANNEL_ID;
-
-const server = new MinecraftServer(SERVER_IP, SERVER_PORT);
 
 async function updateServerStatus() {
   const channel = await client.channels.fetch(CHANNEL_ID);
   if (!channel) return;
 
-  // Wrap mcping-js ping in a promise
-  const status = await new Promise((resolve) => {
-    server.ping(1000, (err, res) => {
-      if (err) return resolve({ online: false });
-      resolve({ online: true, res });
-    });
-  });
-
-  if (!status.online) {
-    await channel.setName("🔴 Offline");
-  } else {
-    const online = status.res.players.online;
-    const max = status.res.players.max;
+  try {
+    const res = await status(SERVER_IP, SERVER_PORT, { timeout: 2000 });
+    const online = res.players.online;
+    const max = res.players.max;
     await channel.setName(`🟢 ${online}/${max}`);
+  } catch (err) {
+    await channel.setName("🔴 Offline");
   }
 }
 
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
-
   updateServerStatus();
   setInterval(updateServerStatus, 30000);
 });
