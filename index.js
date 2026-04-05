@@ -13,20 +13,24 @@ const CHANNEL_ID = process.env.CHANNEL_ID;
 const server = new MinecraftServer(SERVER_IP, SERVER_PORT);
 
 async function updateServerStatus() {
-  server.ping(3000, async (err, res) => {
-    const channel = await client.channels.fetch(CHANNEL_ID);
+  const channel = await client.channels.fetch(CHANNEL_ID);
+  if (!channel) return;
 
-    if (!channel) return;
-
-    if (err) {
-      await channel.setName("🔴 Offline");
-    } else {
-      const online = res.players.online;
-      const max = res.players.max;
-
-      await channel.setName(`🟢 ${online}/${max}`);
-    }
+  // Wrap mcping-js ping in a promise
+  const status = await new Promise((resolve) => {
+    server.ping(1000, (err, res) => {
+      if (err) return resolve({ online: false });
+      resolve({ online: true, res });
+    });
   });
+
+  if (!status.online) {
+    await channel.setName("🔴 Offline");
+  } else {
+    const online = status.res.players.online;
+    const max = status.res.players.max;
+    await channel.setName(`🟢 ${online}/${max}`);
+  }
 }
 
 client.once('ready', () => {
