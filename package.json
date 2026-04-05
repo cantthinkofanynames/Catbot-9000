@@ -1,0 +1,12 @@
+{
+  "name": "Catbot 9000",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.0.0",
+    "mcping-js": "^1.0.0"
+  }
+}
