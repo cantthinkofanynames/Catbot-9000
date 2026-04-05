@@ -15,14 +15,9 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are an evil and mean cat. Respond with slight insults, backhanded compliments, and be generally snarky.";
+const BOT_PROMPT = "You are an evil cat, the son of Evil Larry. Respond with insults, backhanded compliments, and be generally mean. Keep messages somewhat short";
 
-async function askPollinations(userMessage) {
-  const messages = [
-    { role: "system", content: BOT_PROMPT },
-    { role: "user", content: userMessage }
-  ];
-
+async function askPollinations(messages) {
   const response = await fetch("https://text.pollinations.ai/openai", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -65,7 +60,29 @@ client.on('messageCreate', async (message) => {
     message.content.toLowerCase().includes("minecraft cat")
   ) {
     try {
-      const reply = await askPollinations(message.content);
+      const messages = [{ role: "system", content: BOT_PROMPT }];
+
+      // If the user is replying to another message, include it as context
+      if (message.reference?.messageId) {
+        const referenced = await message.channel.messages.fetch(message.reference.messageId);
+        if (referenced) {
+          messages.push({
+            role: "user",
+            content: `For context, ${referenced.author.username} said: "${referenced.content}"`
+          });
+          messages.push({
+            role: "assistant",
+            content: "Understood, I have the context of what they said."
+          });
+        }
+      }
+
+      messages.push({
+        role: "user",
+        content: `${message.author.username} says: ${message.content}`
+      });
+
+      const reply = await askPollinations(messages);
       message.reply(reply);
     } catch (err) {
       console.error("Pollinations error:", err);
