@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { status } = require('minecraft-server-util');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require("openai");
 const http = require('http');
 
 const TOKEN = process.env.TOKEN;
@@ -17,9 +17,9 @@ const client = new Client({
   ]
 });
 
-const openai = new OpenAIApi(new Configuration({
+const openai = new OpenAI.OpenAI({
   apiKey: OPENAI_API_KEY
-}));
+});
 
 const BOT_PROMPT = "You are an evil and mean cat. Respond with slight insults, backhanded compliments, and be generally snarky.";
 
@@ -44,9 +44,13 @@ async function updateServerStatus() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  if (message.content.toLowerCase().includes("catbot")) {
+  // Respond to one or more keywords
+  if (
+    message.content.toLowerCase().includes("catbot") ||
+    message.content.toLowerCase().includes("minecraft cat")
+  ) {
     try {
-      const response = await openai.createChatCompletion({
+      const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
           { role: "system", content: BOT_PROMPT },
@@ -54,7 +58,7 @@ client.on('messageCreate', async (message) => {
         ]
       });
 
-      const reply = response.data.choices[0].message.content;
+      const reply = response.choices[0].message.content;
       message.reply(reply);
     } catch (err) {
       console.error("ChatGPT error:", err);
@@ -73,7 +77,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   updateServerStatus();
-  setInterval(updateServerStatus, 30000); // every 30s
+  setInterval(updateServerStatus, 30000); // update every 30s
 });
 
 client.login(TOKEN);
