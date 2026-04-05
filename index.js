@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { status } = require('minecraft-server-util');
-const OpenAI = require("openai");
+const { Configuration, OpenAIApi } = require('openai');
 const http = require('http');
 
 const TOKEN = process.env.TOKEN;
@@ -17,17 +17,11 @@ const client = new Client({
   ]
 });
 
-const openai = new OpenAI({
+const openai = new OpenAIApi(new Configuration({
   apiKey: OPENAI_API_KEY
-});
+}));
 
 const BOT_PROMPT = "You are an evil and mean cat. Respond with slight insults, backhanded compliments, and be generally snarky.";
-
-// Track cooldowns per user
-const lastMessageTime = new Map();
-
-// Prevent duplicate replies per message
-const processingMessages = new Set();
 
 async function updateServerStatus() {
   try {
@@ -50,49 +44,22 @@ async function updateServerStatus() {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
 
-  const content = message.content.toLowerCase();
-  if (!content.includes("catbot") && !content.includes("minecraft cat")) return;
+  if (message.content.toLowerCase().includes("catbot")) {
+    try {
+      const response = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: BOT_PROMPT },
+          { role: "user", content: message.content }
+        ]
+      });
 
-  // Prevent duplicate handling of same message
-  if (processingMessages.has(message.id)) return;
-  processingMessages.add(message.id);
-
-  // Cooldown (1 second per user)
-  const now = Date.now();
-  const last = lastMessageTime.get(message.author.id) || 0;
-  if (now - last < 1000) {
-    processingMessages.delete(message.id);
-    return;
-  }
-  lastMessageTime.set(message.author.id, now);
-
-  let replied = false;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [
-        { role: "system", content: BOT_PROMPT },
-        { role: "user", content: message.content }
-      ]
-    });
-
-    const reply = response.choices?.[0]?.message?.content;
-
-    if (!reply) throw new Error("No reply returned from OpenAI");
-
-    await message.reply(reply);
-    replied = true;
-
-  } catch (err) {
-    console.error("ChatGPT error:", err);
-
-    if (!replied) {
-      await message.reply("Sorry, I couldn't process that message.");
+      const reply = response.data.choices[0].message.content;
+      message.reply(reply);
+    } catch (err) {
+      console.error("ChatGPT error:", err);
+      message.reply("Sorry, I couldn't process that message.");
     }
-  } finally {
-    // Clean up so memory doesn't grow forever
-    processingMessages.delete(message.id);
   }
 });
 
@@ -106,7 +73,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   updateServerStatus();
-  setInterval(updateServerStatus, 30000);
+  setInterval(updateServerStatus, 30000); // every 30s
 });
 
 client.login(TOKEN);
