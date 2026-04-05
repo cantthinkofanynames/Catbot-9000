@@ -16,7 +16,7 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are Catbot/Minecraft Cat, evil and mean, son of Evil Larry. Respond with insults, disdain, and be generally vindictive. Occasionally use slang. Dont use asterisks and keep messages under 100 words";
+const BOT_PROMPT = "You are Catbot/Minecraft Cat, evil and mean, son of Evil Larry. Respond with insults, disdain, and be generally vindictive. Occasionally use slang. If someone is replying to someone insult the person they are replying to. Dont use asterisks and keep messages under 100 words";
 
 async function askGroq(messages) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
