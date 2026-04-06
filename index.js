@@ -134,6 +134,26 @@ async function randomPing() {
   }
 }
 
+function sanitizeMessage(text) {
+  if (!text) return text;
+
+  // Add words you want filtered here (lowercase)
+  const bannedWords = [
+    "nigga",
+    "nigger",
+    "niglet"
+  ];
+
+  let clean = text;
+
+  for (const word of bannedWords) {
+    const regex = new RegExp(`\\b${word}\\b`, "gi");
+    clean = clean.replace(regex, "fella");
+  }
+
+  return clean;
+}
+
 function scheduleNextPing() {
   const delay = Math.floor(Math.random() * (PING_INTERVAL_MAX_MS - PING_INTERVAL_MIN_MS + 1)) + PING_INTERVAL_MIN_MS;
   console.log(`Next random ping in ${Math.round(delay / 60000)} minutes`);
@@ -190,9 +210,10 @@ client.on('messageCreate', async (message) => {
       }
     ];
 
-    const reply = await askGroq(messages);
+    let reply = await askGroq(messages);
+    reply = sanitizeMessage(reply);
+    
     addToHistory(message.channel.id, "Catbot", reply);
-
     message.reply(reply);
   } catch (err) {
     console.error("Groq error:", err);
