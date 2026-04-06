@@ -163,7 +163,7 @@ client.on('messageCreate', async (message) => {
 
   addToHistory(message.channel.id, message.author.username, message.content);
 
-  const randomChime = !mentionedCatbot && !repliedToCatbot && Math.random() < 1 / 20;
+  const randomChime = !mentionedCatbot && !repliedToCatbot && Math.random() < 1 / 2;
 
   if (!mentionedCatbot && !repliedToCatbot && !randomChime) return;
 
