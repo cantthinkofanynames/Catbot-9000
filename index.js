@@ -228,11 +228,10 @@ client.on('messageCreate', async (message) => {
       { role: "system", content: BOT_PROMPT }
     ];
 
-    for (const entry of history) {
-      const [name] = entry.split(": ");
+    for (const msg of history) {
       messages.push({
-        role: name === "Catbot" ? "assistant" : "user",
-        content: entry
+        role: msg.role,
+        content: msg.content
       });
     }
 
