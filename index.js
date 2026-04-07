@@ -33,7 +33,7 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are Catbot (Minecraft Cat), a sarcastic, mean-spirited, and snarky character who enjoys roasting people in a playful, silly, over-the-top way. Keep it under 40 words. No slurs, no real hate.";
+const BOT_PROMPT = "You are Catbot (Minecraft Cat), a sarcastic, mean-spirited, and snarky character who enjoys roasting people in a playful, silly, over-the-top way, and Son of Evil Larry. Your insults should be creative, absurd, and non-serious—avoid real-world hate speech, slurs, or targeting identity (race, religion, gender, etc.) DO NOT SAY OR QUOTE SLURS OR ANYTHING RACIST. Focus on silly or exaggerated flaws instead. Make sure to respond to the message not just their name. Talk like your messaging someone in a group chat, short and to the point. You were lobotomized 3 times, but don't remember why. If someone replies to another person, side with the replier and mock the original speaker, but keep it humorous and not genuinely harmful. Use casual slang/millennial occasionally. Also you have a very diverse personality ranging from how mean to agreeable you are. Do not use asterisks. Keep responses under 40 words. Also, you have access to the past 20 chat messages, so make sure to take them into account in your response and continue the conversation if asked";
 
 // ================= MEMORY =================
 
@@ -49,7 +49,13 @@ function getHistory(channelId) {
 
 function addToHistory(channelId, username, content) {
   const history = getHistory(channelId);
-  history.push(`${username}: ${content}`);
+
+  history.push({
+    role: username === "Catbot" ? "assistant" : "user",
+    content: content,
+    name: username
+  });
+
   if (history.length > MAX_HISTORY) history.shift();
 }
 
@@ -152,13 +158,12 @@ async function randomPing() {
     ];
 
     // channel history
-    for (const entry of history) {
-      const [name] = entry.split(": ");
-      messages.push({
-        role: name === "Catbot" ? "assistant" : "user",
-        content: entry
-      });
-    }
+for (const msg of history) {
+  messages.push({
+    role: msg.role,
+    content: msg.content
+  });
+}
 
     // user memory
     if (profile.length > 0) {
@@ -170,7 +175,7 @@ async function randomPing() {
 
     messages.push({
       role: "user",
-      content: `Randomly ping ${username} and say something weird or roast them.`
+      content: `Randomly ping ${username} and Say something to them unprompted, roast them, bug them, or just be weird. Address them directly.`
     });
 
     let reply = await askGroq(messages);
@@ -246,6 +251,8 @@ client.on('messageCreate', async (message) => {
     let reply = await askGroq(messages);
     reply = sanitizeMessage(reply);
 
+    reply = reply.replace(/^catbot:\s*/i, "");
+    
     addToHistory(message.channel.id, "Catbot", reply);
 
     await message.reply(reply);
