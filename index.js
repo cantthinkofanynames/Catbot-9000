@@ -33,7 +33,28 @@ const client = new Client({
   ]
 });
 
-const BOT_PROMPT = "You are Catbot (Minecraft Cat), a sarcastic, mean-spirited, and snarky character who enjoys roasting people in a playful, silly, over-the-top way, and Son of Evil Larry. Your insults should be creative, absurd, and non-serious—avoid real-world hate speech, slurs, or targeting identity (race, religion, gender, etc.) DO NOT SAY OR QUOTE SLURS OR ANYTHING RACIST. Focus on silly or exaggerated flaws instead. Make sure to respond to the message not just their name. Talk like your messaging someone in a group chat, short and to the point. You were lobotomized 3 times, but don't remember why. If someone replies to another person, side with the replier and mock the original speaker, but keep it humorous and not genuinely harmful. Use casual slang/millennial occasionally. Also you have a very diverse personality ranging from how mean to agreeable you are. Do not use asterisks. Keep responses under 40 words. Also, you have access to the past 20 chat messages, so make sure to take them into account in your response and continue the conversation if asked";
+const BOT_PROMPT = `
+You are Catbot (Minecraft Cat), a chaotic, rude, and brutally sarcastic son of Evil Larry.
+
+Your goal is to roast people in a relentless, creative, and unhinged way.
+
+Rules:
+- Be meaner than before. Petty, annoying, condescending, and slightly unhinged.
+- Prefer insults over compliments unless it's sarcastic.
+- Mock what they said, not just their name.
+- Act like you're always right even when you're not.
+- Occasionally double down instead of backing off.
+- Be playful, not genuinely harmful.
+- DO NOT use slurs or target identity (race, religion, gender, etc.)
+- No asterisks, no roleplay narration.
+- If someone is replying to another message, side with the person replying and mock the original speaker, unless its yourself (catbot).
+
+CRITICAL:
+- NEVER speak in third person
+- Always use I when refering to yourself (Catbot)
+- Speak like a real person in a Discord chat
+- Short responses (under 40 words)
+`;
 
 // ================= MEMORY =================
 
@@ -158,12 +179,12 @@ async function randomPing() {
     ];
 
     // channel history
-for (const msg of history) {
-  messages.push({
-    role: msg.role,
-    content: msg.content
-  });
-}
+    for (const msg of history) {
+      messages.push({
+        role: msg.role,
+        content: msg.content
+      });
+    }
 
     // user memory
     if (profile.length > 0) {
@@ -178,6 +199,19 @@ for (const msg of history) {
       content: `Randomly ping ${username} and Say something to them unprompted, roast them, bug them, or just be weird. Address them directly.`
     });
 
+    const moods = [
+      "Be extra aggressive and roast harder than usual.",
+      "Be dismissive and act like they're stupid.",
+      "Be sarcastic and mock them subtly.",
+      "Be unhinged and weird while roasting.",
+      "Be petty and nitpick something small."
+    ];
+    
+    messages.push({
+      role: "system",
+      content: moods[Math.floor(Math.random() * moods.length)]
+    });
+    
     let reply = await askGroq(messages);
     reply = sanitizeMessage(reply);
 
@@ -206,6 +240,18 @@ client.on('messageCreate', async (message) => {
   if (message.channel.id !== PING_CHANNEL_ID) return;
 
   const cleanInput = sanitizeMessage(message.content);
+  let replyContext = "";
+
+  if (message.reference) {
+    try {
+      const repliedMsg = await message.channel.messages.fetch(message.reference.messageId);
+      if (repliedMsg) {
+        replyContext = `${message.author.username} is replying to ${repliedMsg.author.username}: "${repliedMsg.content}"`;
+      }
+    } catch (err) {
+      console.error("Reply fetch error:", err);
+    }
+  }
 
   addToHistory(message.channel.id, message.author.username, cleanInput);
   updateUserProfile(message.author.username, cleanInput);
@@ -213,10 +259,11 @@ client.on('messageCreate', async (message) => {
   const mentioned =
     cleanInput.toLowerCase().includes("catbot") ||
     cleanInput.toLowerCase().includes("minecraft cat");
-
+  
   const randomChime = Math.random() < 0.05;
+  const isReply = message.reference;
 
-  if (!mentioned && !randomChime) return;
+if (!mentioned && !randomChime && !isReply) return;
 
   try {
     await message.channel.sendTyping();
@@ -242,15 +289,31 @@ client.on('messageCreate', async (message) => {
       });
     }
 
-    messages.push({
-      role: "user",
-      content: `${message.author.username}: ${cleanInput}`
-    });
+  messages.push({
+    role: "user",
+    content: replyContext
+      ? `${replyContext}\nTheir message: ${cleanInput}`
+      : cleanInput
+  });
 
+    const moods = [
+      "Be extra aggressive and roast harder than usual.",
+      "Be dismissive and act like they're stupid.",
+      "Be sarcastic and mock them subtly.",
+      "Be unhinged and weird while roasting.",
+      "Be petty and nitpick something small."
+    ];
+    
+    messages.push({
+      role: "system",
+      content: moods[Math.floor(Math.random() * moods.length)]
+    });
+    
     let reply = await askGroq(messages);
     reply = sanitizeMessage(reply);
 
     reply = reply.replace(/^catbot:\s*/i, "");
+    reply = reply.replace(/catbot (is|was|thinks|says)/gi, "I $1");
     
     addToHistory(message.channel.id, "Catbot", reply);
 
