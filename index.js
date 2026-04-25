@@ -1,8 +1,9 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { status } = require('minecraft-server-util');
 const http = require('http');
 
 const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID; // Add your bot's client/application ID as an env var
 const SERVER_IP = process.env.SERVER_IP;
 const SERVER_PORT = parseInt(process.env.SERVER_PORT) || 25565;
 const CHANNEL_ID = process.env.CHANNEL_ID; // status channel
@@ -57,6 +58,117 @@ CRITICAL:
 - Speak like a real person in a Discord chat
 - Short responses (under 40 words)
 `;
+
+// ================= FEATURE FLAGS =================
+
+const features = {
+  responding: true,   // responds to mentions/replies/random chime
+  randomPings: true,  // random unprompted pings
+  statusUpdates: true // minecraft server status channel updates
+};
+
+// ================= SLASH COMMANDS =================
+
+const commands = [
+  new SlashCommandBuilder()
+    .setName('catbot')
+    .setDescription('Enable or disable Catbot features')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+    .addSubcommand(sub =>
+      sub
+        .setName('toggle')
+        .setDescription('Toggle a specific feature on or off')
+        .addStringOption(opt =>
+          opt
+            .setName('feature')
+            .setDescription('Which feature to toggle')
+            .setRequired(true)
+            .addChoices(
+              { name: 'responding', value: 'responding' },
+              { name: 'random_pings', value: 'randomPings' },
+              { name: 'status_updates', value: 'statusUpdates' },
+            )
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('status')
+        .setDescription('Show the current status of all Catbot features')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('enable_all')
+        .setDescription('Enable all Catbot features')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('disable_all')
+        .setDescription('Disable all Catbot features')
+    )
+    .toJSON()
+];
+
+async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  try {
+    console.log('Registering slash commands...');
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+    console.log('Slash commands registered.');
+  } catch (err) {
+    console.error('Failed to register commands:', err);
+  }
+}
+
+function featureStatusEmbed() {
+  const lines = Object.entries(features).map(([key, val]) => {
+    const label = key === 'randomPings' ? 'random_pings' : key === 'statusUpdates' ? 'status_updates' : key;
+    return `${val ? '🟢' : '🔴'} **${label}**: ${val ? 'enabled' : 'disabled'}`;
+  });
+  return lines.join('\n');
+}
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'catbot') return;
+
+  const sub = interaction.options.getSubcommand();
+
+  if (sub === 'status') {
+    return interaction.reply({
+      content: `**Catbot Feature Status:**\n${featureStatusEmbed()}`,
+      ephemeral: true
+    });
+  }
+
+  if (sub === 'enable_all') {
+    Object.keys(features).forEach(k => features[k] = true);
+    return interaction.reply({
+      content: `✅ All features **enabled**.\n${featureStatusEmbed()}`,
+      ephemeral: true
+    });
+  }
+
+  if (sub === 'disable_all') {
+    Object.keys(features).forEach(k => features[k] = false);
+    return interaction.reply({
+      content: `🛑 All features **disabled**.\n${featureStatusEmbed()}`,
+      ephemeral: true
+    });
+  }
+
+  if (sub === 'toggle') {
+    const feature = interaction.options.getString('feature');
+    if (!(feature in features)) {
+      return interaction.reply({ content: `Unknown feature: \`${feature}\``, ephemeral: true });
+    }
+    features[feature] = !features[feature];
+    const state = features[feature] ? '🟢 enabled' : '🔴 disabled';
+    return interaction.reply({
+      content: `**${feature}** is now ${state}.\n\n${featureStatusEmbed()}`,
+      ephemeral: true
+    });
+  }
+});
 
 // ================= MEMORY =================
 
@@ -142,6 +254,8 @@ function sanitizeMessage(text) {
 // ================= STATUS =================
 
 async function updateServerStatus() {
+  if (!features.statusUpdates) return; // 🔒 gated
+
   try {
     const channel = await client.channels.fetch(CHANNEL_ID);
     if (!channel) return;
@@ -160,6 +274,8 @@ async function updateServerStatus() {
 // ================= RANDOM PING =================
 
 async function randomPing() {
+  if (!features.randomPings) return; // 🔒 gated
+
   try {
     const channel = await client.channels.fetch(PING_CHANNEL_ID);
     if (!channel) return;
@@ -180,7 +296,6 @@ async function randomPing() {
       { role: "system", content: BOT_PROMPT }
     ];
 
-    // channel history
     for (const msg of history) {
       messages.push({
         role: msg.role,
@@ -188,7 +303,6 @@ async function randomPing() {
       });
     }
 
-    // user memory
     if (profile.length > 0) {
       messages.push({
         role: "system",
@@ -237,9 +351,9 @@ function scheduleNextPing() {
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
-
-  // ONLY talk in your chosen channel
   if (message.channel.id !== PING_CHANNEL_ID) return;
+
+  if (!features.responding) return; // 🔒 gated
 
   const cleanInput = sanitizeMessage(message.content);
   let replyContext = "";
@@ -265,7 +379,7 @@ client.on('messageCreate', async (message) => {
   const randomChime = Math.random() < 0.05;
   const isReply = message.reference;
 
-if (!mentioned && !randomChime && !isReply) return;
+  if (!mentioned && !randomChime && !isReply) return;
 
   try {
     await message.channel.sendTyping();
@@ -291,12 +405,12 @@ if (!mentioned && !randomChime && !isReply) return;
       });
     }
 
-  messages.push({
-    role: "user",
-    content: replyContext
-      ? `${replyContext}\nTheir message: ${cleanInput}`
-      : cleanInput
-  });
+    messages.push({
+      role: "user",
+      content: replyContext
+        ? `${replyContext}\nTheir message: ${cleanInput}`
+        : cleanInput
+    });
 
     const moods = [
       "Be extra aggressive and roast harder than usual.",
@@ -337,8 +451,9 @@ http.createServer((req, res) => {
 
 // ================= START =================
 
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+  await registerCommands();
   updateServerStatus();
   setInterval(updateServerStatus, 30000);
   scheduleNextPing();
